@@ -1,0 +1,119 @@
+
+
+```{r}
+## Seleção das bibliotecas
+library(readr)
+library(class)
+library(gmodels)
+library(dplyr)
+
+```
+
+```{r}
+#Carregando os dados
+getwd()
+setwd("/home/vagner/Documents")
+data <- read.csv("data.csv", sep = ',')
+data
+```
+Este dataset contém 569 observações com 33 variáveis. Das 33 variáveis 30 são medições laboratoriais com valores numéricos. A variável X possui NA's. O diagnóstico é codificado como "M" para indicar maligno e "B" para indicar benigno. Verificando a saída do comando str se verifica que os 30 recursos numéricos de medição incluem a média, o erro padrão e o valores específicos para as 10 características específicas das células.
+
+Raio
+Textura
+Perímetro
+Área
+Suavidade
+Compacidade
+Concavidade
+Pontos côncavos
+Simetria
+Dimensão fractal
+
+```{r}
+str(data)
+```
+O str mostra que a primeira variável é id e a segunda de diagnóstico, ambas as variáveis não fornecem nenhuma informação necessariamente útil e neste trabalho podem ser removidas.
+```{r}
+#Exploração dos dados
+data <- select(data,-id,-X)
+
+```
+
+A variável 'diagnosis' é o resultado que se deseja prever. Este recurso indica se a célula é do grupo maligno ou benigno.
+
+```{r}
+table(data$diagnosis)
+round(prop.table(table(data$diagnosis)) * 100, digits = 1)
+barplot(table(data$diagnosis), main = 'diagnosis' )
+# table() mostra que este conjunto de dados possui 357 células benignas e 212 células malignas. A função prop.table () mostra que 62,7 por cento é benigna e 37,3 por cento da massa é maligna.
+```
+O valor ausente neste conjunto de dados é zero, o que é bom para a modelagem.
+
+```{r}
+## Verificação de valores ausentes
+sum(is.na(data))
+```
+
+```{r}
+head(data)
+```
+
+```{r}
+## Correlação entre as variáveis
+cor(select(data,-diagnosis))
+```
+
+```{r}
+summary.data.frame(data)
+```
+
+O algoritmo KNN funciona calculando a distância e dependente da escala de medição dos recursos de entrada. Depois de verificar a saída do comando summary (), é observado que o intervalo de radius_mean é de 6,981 a 28,110 e o intervalo de smoothness_mean é de 0,05263 a 0,16340, o impacto do raio sendo maior do que a suavidade no cálculo de distâncias pode afetar a modelagem. Dessa forma, a normalização é utilizada para redimensionar os recursos para uma faixa de valores padrão.
+
+```{r}
+#Transformação dos dados
+normalize <- function(x) {
+    return ((x - min(x)) / (max(x) - min(x)))
+}
+```
+
+```{r}
+data_new <- as.data.frame(lapply(select(data,-diagnosis), normalize))
+summary(select(data_new,radius_mean,smoothness_mean))
+```
+Após a normalização o radius_mean e smoothness_mean variam agora de 0 a 1, o que significa os dados foram transformados e redimensionados.
+
+```{r}
+#Preparação dos dados
+#Faz-se necessário agora usar os dados para aprendizado de máquina com um conjunto de treinamento e um conjunto de teste para verificar a precisão. São selecionados 429 dados para o conjunto de dados de treinamento e os 140 restantes para implementar os novos testes.
+treino_data <- data_new[1:429,]
+teste_data <- data_new[430:569,]
+```
+
+Para o treinamento como auxílio do KNN, é preciso armazenar a divisão da variável de destino entre o conjunto de treinamento e teste.
+```{r}
+rotulo_treino_data <- data[1:429, 1]
+rotulo_teste_data  <- data[430:569, 1]
+```
+
+ Função knn () da biblioteca 'class'. A saída gerada contém a informação sobre a classe atribuida ao exemplar de teste e uma lista das possíveis classes que o exemplar poderia assumir.
+```{r}
+# implementação KNN
+y_estimado <- knn(train = treino_data, test = teste_data, cl = rotulo_treino_data, k = 15)
+y_estimado
+```
+
+```{r}
+# Desempenho
+#Após a modelagem dos dados com base em algoritmo knn, é hora de verificar o desempenho. Matriz de confusão para encontrar o desempenho do conjunto de dados.
+confusao_matriz = CrossTable(x = rotulo_teste_data, y = y_estimado, prop.chisq = FALSE)
+confusao_matriz
+```
+
+
+```{r}
+#A acurácia é dada por:
+
+(105+ 33)/ 140
+```
+A acurácia é de 98,57%. 2 de 140 ou 1.43% das células foram classificadas incorretamente.
+
